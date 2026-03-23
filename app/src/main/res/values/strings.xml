@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Veto</string>
+    <string name="accessibility_service_description">Veto blocks distracting apps when you haven\'t completed your Anki reviews.</string>
+</resources>
