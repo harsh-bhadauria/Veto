@@ -1,6 +1,7 @@
 package com.raven.veto.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,7 +72,7 @@ fun AppSelectorScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                placeholder = { Text("Search apps") },
+                placeholder = { Text("Search apps...") },
                 singleLine = true
             )
 
@@ -83,7 +84,12 @@ fun AppSelectorScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 16.dp)
+                ) {
                     items(
                         items = uiState.apps,
                         key = { it.packageName }
@@ -108,7 +114,15 @@ fun AppListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggle(!app.isBlocked) }
-            .padding(16.dp),
+            .padding(vertical = 8.dp)
+            .background(
+                color = if (app.isBlocked)
+                    androidx.compose.material3.MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                else
+                    androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            )
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val bitmap = app.icon?.toBitmap()?.asImageBitmap()
@@ -122,12 +136,26 @@ fun AppListItem(
             Box(modifier = Modifier.size(48.dp))
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
-        Text(
-            text = app.name,
+        Column(
             modifier = Modifier.weight(1f)
-        )
+        ) {
+            Text(
+                text = app.name,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            )
+            Text(
+                text = if (app.isBlocked) "Blocked" else "Allowed",
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                color = if (app.isBlocked)
+                    androidx.compose.ui.graphics.Color(0xFFF44336)
+                else
+                    androidx.compose.ui.graphics.Color(0xFF4CAF50),
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+        }
 
         Checkbox(
             checked = app.isBlocked,

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -44,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -127,9 +129,17 @@ fun PermissionsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Header message
+            Text(
+                text = "Veto needs permissions to keep you focused.",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
             PermissionItem(
                 title = "AnkiDroid Access",
-                description = "Required to read your due cards count.",
+                description = "Read your due cards to track your progress.",
                 isGranted = isAnkiGranted,
                 onClick = {
                     if (!isAnkiGranted) {
@@ -140,7 +150,7 @@ fun PermissionsScreen(
 
             PermissionItem(
                 title = "Accessibility Service",
-                description = "Required to detect and block apps.",
+                description = "Detect and block apps when needed.",
                 isGranted = isAccessibilityEnabled,
                 onClick = {
                     if (!isAccessibilityEnabled) {
@@ -153,7 +163,7 @@ fun PermissionsScreen(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 PermissionItem(
                     title = "Notifications",
-                    description = "Required to show remaining time timer.",
+                    description = "Show remaining time and alerts.",
                     isGranted = isNotificationGranted,
                     onClick = {
                         if (!isNotificationGranted) {
@@ -164,8 +174,8 @@ fun PermissionsScreen(
             }
 
             // Helpful note for settings manual intervention
+            Spacer(modifier = Modifier.weight(1f))
             if (!isAnkiGranted || !isAccessibilityEnabled || (!isNotificationGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)) {
-                Spacer(modifier = Modifier.weight(1f))
                 Button(
                     onClick = {
                         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -193,7 +203,12 @@ fun PermissionItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .background(
+                color = if (isGranted)
+                    Color(0xFF4CAF50).copy(alpha = 0.12f)
+                else
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+            )
             .clickable(enabled = !isGranted, onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -202,7 +217,8 @@ fun PermissionItem(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -217,7 +233,8 @@ fun PermissionItem(
         Icon(
             imageVector = if (isGranted) Icons.Default.CheckCircle else Icons.Default.Error,
             contentDescription = if (isGranted) "Granted" else "Not Granted",
-            tint = if (isGranted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+            tint = if (isGranted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(28.dp)
         )
     }
 }
