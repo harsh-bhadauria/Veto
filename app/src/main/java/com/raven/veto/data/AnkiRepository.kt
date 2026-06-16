@@ -21,11 +21,12 @@ import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.raven.veto.domain.AddEarnedTimeUseCase
 
 @Singleton
 class AnkiRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val appRepository: AppRepository
+    private val addEarnedTimeUseCase: AddEarnedTimeUseCase
 ) {
     private val TAG = "AnkiRepository"
     private val mutex = Mutex()
@@ -106,7 +107,7 @@ class AnkiRepository @Inject constructor(
                     val diff = lastTotalDue - stats.totalDue
                     if (diff > 0) {
                         // User reviewed 'diff' cards. Add to balance.
-                        appRepository.addEarnedTime(diff)
+                        addEarnedTimeUseCase(diff)
                     }
 
                     // Update lastTotalDue to current

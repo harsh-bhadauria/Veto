@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -22,6 +23,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -65,6 +68,7 @@ import java.util.Locale
 fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
     var showAppSelector by remember { mutableStateOf(false) }
     var showPermissionsScreen by remember { mutableStateOf(false) }
+    var showSettingsScreen by remember { mutableStateOf(false) }
     var isAnkiGranted by remember { mutableStateOf(false) }
     var isNotificationGranted by remember { mutableStateOf(false) }
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
@@ -79,11 +83,17 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
         return
     }
 
+    if (showSettingsScreen) {
+        SettingsScreen(onNavigateBack = { showSettingsScreen = false })
+        return
+    }
+
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val ankiStats by viewModel.ankiStats.collectAsState()
     val availableMinutes by viewModel.availableMinutes.collectAsState()
     val lastUpdated by viewModel.lastUpdated.collectAsState()
+    val recentUsage by viewModel.recentUsage.collectAsState()
     val permission = "com.ichi2.anki.permission.READ_WRITE_DATABASE"
 
     // Check permissions
@@ -231,6 +241,54 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
                 }
             }
 
+            // Recent Usage Stats
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Recent Usage (Last 7 Days)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                if (recentUsage.isEmpty()) {
+                    Text(
+                        text = "No usage data yet. Do some Anki reviews or use some blocked apps to start tracking!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    )
+                } else {
+                    recentUsage.forEach { usage ->
+                        val earnedMins = usage.timeEarnedMillis / 60_000
+                        val spentMins = usage.timeSpentMillis / 60_000
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = usage.date, style = MaterialTheme.typography.bodyMedium)
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(text = "Earned: $earnedMins m", color = AnkiReviewGreen, style = MaterialTheme.typography.bodySmall)
+                                    Text(text = "Spent: $spentMins m", color = AnkiLearnRed, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Last Updated
             if (lastUpdated > 0) {
                 val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
@@ -289,11 +347,27 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
 
                     ActionButton(
                         label = "Permissions",
-                        icon = Icons.Default.Settings,
+                        icon = Icons.Default.Settings, // Will change icon below
                         modifier = Modifier.weight(1f),
                         onClick = { showPermissionsScreen = true },
                         isHighlighted = !allPermissionsGranted
                     )
+                }
+
+                // Third Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ActionButton(
+                        label = "Settings",
+                        icon = Icons.Default.Settings,
+                        modifier = Modifier.weight(1f),
+                        onClick = { showSettingsScreen = true }
+                    )
+
+                    // Empty spacer to align button to left
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }

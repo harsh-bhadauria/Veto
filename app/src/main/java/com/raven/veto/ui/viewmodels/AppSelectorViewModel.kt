@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raven.veto.data.AppRepository
 import com.raven.veto.data.AppInfo
+import com.raven.veto.domain.GetBlockedAppsUseCase
+import com.raven.veto.domain.ToggleAppBlockUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,7 +17,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AppSelectorViewModel @Inject constructor(
-    private val appRepository: AppRepository
+    private val appRepository: AppRepository,
+    private val getBlockedAppsUseCase: GetBlockedAppsUseCase,
+    private val toggleAppBlockUseCase: ToggleAppBlockUseCase
 ) : ViewModel() {
 
     private val _rawApps = MutableStateFlow<List<AppInfo>>(emptyList())
@@ -26,7 +30,7 @@ class AppSelectorViewModel @Inject constructor(
 
     val uiState: StateFlow<AppSelectorUiState> = combine(
         _rawApps,
-        appRepository.blockedAppsFlow,
+        getBlockedAppsUseCase(),
         _searchQuery,
         _isLoading
     ) { apps, blockedSet, query, isLoading ->
@@ -69,9 +73,9 @@ class AppSelectorViewModel @Inject constructor(
     }
 
     fun toggleAppBlock(packageName: String) {
-        val currentBlocked = appRepository.blockedAppsFlow
-        // We just toggle in repo, flow will update UI
-        appRepository.toggleAppBlock(packageName)
+        viewModelScope.launch {
+            toggleAppBlockUseCase(packageName)
+        }
     }
 }
 

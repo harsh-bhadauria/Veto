@@ -3,7 +3,8 @@ package com.raven.veto.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raven.veto.data.AnkiRepository
-import com.raven.veto.data.AppRepository
+import com.raven.veto.domain.GetAvailableTimeUseCase
+import com.raven.veto.data.local.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -12,13 +13,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class BlockingViewModel @Inject constructor(
     private val ankiRepository: AnkiRepository,
-    private val appRepository: AppRepository
+    private val getAvailableTimeUseCase: GetAvailableTimeUseCase,
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
@@ -30,7 +33,7 @@ class BlockingViewModel @Inject constructor(
         .flatMapLatest {
             combine(
                 ankiRepository.getAnkiStats(),
-                appRepository.availableTimeFlow
+                getAvailableTimeUseCase()
             ) { ankiStats, availableMillis ->
                 BlockingState(
                     dueCards = ankiStats.totalDue,
@@ -47,6 +50,13 @@ class BlockingViewModel @Inject constructor(
     fun refreshUsage() {
         viewModelScope.launch {
             refreshTrigger.emit(Unit)
+        }
+    }
+
+    fun useEmergencyBypass() {
+        viewModelScope.launch {
+            val currentBalance = getAvailableTimeUseCase().first()
+            preferencesManager.setCurrentBalanceMillis(currentBalance + 60_000L)
         }
     }
 }

@@ -9,7 +9,9 @@ import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
 import com.raven.veto.R
 import com.raven.veto.data.AnkiRepository
-import com.raven.veto.data.AppRepository
+import com.raven.veto.domain.ConsumeTimeUseCase
+import com.raven.veto.domain.GetAvailableTimeUseCase
+import com.raven.veto.domain.GetBlockedAppsUseCase
 import com.raven.veto.ui.screens.BlockingActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +27,13 @@ import javax.inject.Inject
 class VetoAccessibilityService : AccessibilityService() {
 
     @Inject
-    lateinit var appRepository: AppRepository
+    lateinit var consumeTimeUseCase: ConsumeTimeUseCase
+
+    @Inject
+    lateinit var getAvailableTimeUseCase: GetAvailableTimeUseCase
+
+    @Inject
+    lateinit var getBlockedAppsUseCase: GetBlockedAppsUseCase
 
     @Inject
     lateinit var ankiRepository: AnkiRepository
@@ -33,6 +41,12 @@ class VetoAccessibilityService : AccessibilityService() {
 
     @Volatile
     private var totalDueCards = Int.MAX_VALUE // Default to max so we block until loaded
+
+    @Volatile
+    private var currentAvailableMillis = 0L
+
+    @Volatile
+    private var currentBlockedApps: Set<String> = emptySet()
 
     // Removed usageJob and disconnectJob variables that are no longer used the same way
     // or simplified.
@@ -76,8 +90,15 @@ class VetoAccessibilityService : AccessibilityService() {
         }
 
         serviceScope.launch {
-            appRepository.availableTimeFlow.collectLatest {
+            getAvailableTimeUseCase().collectLatest { millis ->
+                currentAvailableMillis = millis
                 updatePersistentNotification()
+            }
+        }
+
+        serviceScope.launch {
+            getBlockedAppsUseCase().collectLatest { apps ->
+                currentBlockedApps = apps
             }
         }
     }
@@ -135,15 +156,14 @@ class VetoAccessibilityService : AccessibilityService() {
     }
 
     private fun checkAndHandleBlock(packageName: String) {
-        val blockedApps = appRepository.blockedAppsFlow.value
-        val isBlockedApp = blockedApps.contains(packageName)
+        val isBlockedApp = currentBlockedApps.contains(packageName)
 
         if (isBlockedApp) {
             cancelDisconnectTimer()
             currentBlockedPackage = packageName
 
             // Check Available Balance
-            val availableMillis = appRepository.getAvailableTimeMillis()
+            val availableMillis = currentAvailableMillis
 
             if (availableMillis < 5000L) { // Allow tiny threshold (< 5s)
                 // Quota exceeded or empty
@@ -196,9 +216,9 @@ class VetoAccessibilityService : AccessibilityService() {
                 if (currentBlockedPackage != packageName) break
 
                 // Consume time
-                appRepository.consumeTime(updateInterval)
+                consumeTimeUseCase(updateInterval)
 
-                val availableMillis = appRepository.getAvailableTimeMillis()
+                val availableMillis = currentAvailableMillis
 
                 // Notification updates via flow observation in onServiceConnected
 
@@ -225,7 +245,7 @@ class VetoAccessibilityService : AccessibilityService() {
             return
         }
 
-        val availableMillis = appRepository.getAvailableTimeMillis()
+        val availableMillis = currentAvailableMillis
         val minutesLeft = (availableMillis / 60000).toInt()
         // Show " < 1 minute" if strict 0 minutes but some seconds left
         val displayMinutes = if (minutesLeft == 0 && availableMillis > 0) 1 else minutesLeft

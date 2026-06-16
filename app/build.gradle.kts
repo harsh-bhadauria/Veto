@@ -92,4 +92,7 @@ dependencies {
 
     // AnkiDroid API
     implementation("com.github.ankidroid:Anki-Android:api-v1.1.0")
+
+    // DataStore
+    implementation(libs.datastore.preferences)
 }

@@ -91,6 +91,9 @@ class BlockingActivity : ComponentActivity() {
                             startActivity(launchIntent)
                         }
                     },
+                    onEmergencyBypass = {
+                        viewModel.useEmergencyBypass()
+                    },
                     onClose = {
                         goHome()
                     }
@@ -119,6 +122,7 @@ fun BlockingScreen(
     dueCards: Int,
     availableMinutes: Int,
     onOpenAnki: () -> Unit,
+    onEmergencyBypass: () -> Unit,
     onClose: () -> Unit
 ) {
     val isUnlocked = availableMinutes > 0
@@ -262,6 +266,16 @@ fun BlockingScreen(
                         )
                     ) {
                         Text("Close")
+                    }
+                } else {
+                    Button(
+                        onClick = onEmergencyBypass,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Emergency 1-Minute Bypass")
                     }
                 }
             }

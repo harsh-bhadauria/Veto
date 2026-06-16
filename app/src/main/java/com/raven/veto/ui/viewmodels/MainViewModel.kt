@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raven.veto.data.AnkiRepository
 import com.raven.veto.data.AnkiStats
-import com.raven.veto.data.AppRepository
+import com.raven.veto.data.local.VetoDao
+import com.raven.veto.data.local.DailyUsageEntity
+import com.raven.veto.domain.GetAvailableTimeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,7 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val ankiRepository: AnkiRepository,
-    private val appRepository: AppRepository
+    private val getAvailableTimeUseCase: GetAvailableTimeUseCase,
+    private val vetoDao: VetoDao
 ) : ViewModel() {
 
     private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
@@ -38,12 +41,19 @@ class MainViewModel @Inject constructor(
             initialValue = AnkiStats()
         )
 
-    val availableMinutes: StateFlow<Int> = appRepository.availableTimeFlow
+    val availableMinutes: StateFlow<Int> = getAvailableTimeUseCase()
         .map { (it / 60_000).toInt() }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = 0
+        )
+
+    val recentUsage: StateFlow<List<DailyUsageEntity>> = vetoDao.getRecentUsageFlow(7)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
         )
 
     val lastUpdated: StateFlow<Long> = refreshTrigger
