@@ -4,11 +4,23 @@ import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.graphics.PixelFormat
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.util.Log
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.raven.veto.R
 import com.raven.veto.data.AnkiRepository
+import com.raven.veto.data.local.PreferencesManager
+import com.raven.veto.data.local.VetoDao
 import com.raven.veto.domain.ConsumeTimeUseCase
 import com.raven.veto.domain.GetAvailableTimeUseCase
 import com.raven.veto.domain.GetBlockedAppsUseCase
@@ -21,18 +33,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
-import android.graphics.PixelFormat
-import android.os.Handler
-import android.os.Looper
-import android.view.Gravity
-import android.view.View
-import android.view.WindowManager
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.provider.Settings
-import com.raven.veto.data.local.PreferencesManager
-import com.raven.veto.data.local.VetoDao
 
 @SuppressLint("AccessibilityPolicy")
 @AndroidEntryPoint

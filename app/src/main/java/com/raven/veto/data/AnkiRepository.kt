@@ -7,6 +7,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.content.edit
 import com.ichi2.anki.FlashCardsContract
+import com.raven.veto.domain.AddEarnedTimeUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -21,7 +22,6 @@ import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.raven.veto.domain.AddEarnedTimeUseCase
 
 @Singleton
 class AnkiRepository @Inject constructor(

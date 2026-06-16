@@ -2,14 +2,14 @@ package com.raven.veto.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.raven.veto.data.AppRepository
-import com.raven.veto.data.AppInfo
-import com.raven.veto.domain.GetBlockedAppsUseCase
-import com.raven.veto.domain.ToggleAppBlockUseCase
-import com.raven.veto.data.local.VetoDao
-import com.raven.veto.data.local.AppProfileEntity
 import com.raven.veto.data.AnkiRepository
+import com.raven.veto.data.AppInfo
+import com.raven.veto.data.AppRepository
+import com.raven.veto.data.local.AppProfileEntity
 import com.raven.veto.data.local.PreferencesManager
+import com.raven.veto.data.local.VetoDao
+import com.raven.veto.domain.ToggleAppBlockUseCase
+import com.raven.veto.ui.uistates.AppSelectorUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,8 +18,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlinx.coroutines.flow.map
-import com.raven.veto.ui.uistates.AppSelectorUiState
 
 @HiltViewModel
 class AppSelectorViewModel @Inject constructor(

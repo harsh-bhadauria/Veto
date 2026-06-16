@@ -1,43 +1,29 @@
 # Veto 🐾
 <img width="1622" height="324" alt="image" src="https://github.com/user-attachments/assets/644e0836-fa96-4746-88ca-fec9bae4fcaa" />
 
-<br>
+I have a terrible habit of opening Instagram when I know I have hundreds of Anki flashcards piling up. Standard app blockers didn't work for me—they were either too easy to turn off, locked behind premium subscriptions, or relied on arbitrary daily timers that didn't actually motivate me to study.
 
-<p align='center'><em>Pay the cat. Get your screen time.</em></p>
-<br>
+So, I built Veto. It's a completely free, unapologetically strict app blocker that physically intercepts your doomscrolling and holds your screen time hostage until your flashcards are done. No subscriptions, no cloud syncing, and no loopholes.
 
-Look at that face. Look at those big, glassy, void-like eyes. 
+Just you, your flashcards, and a very cute (but highly judgmental) cat.
 
-Veto is a very good cat. But he is also a very strict bouncer. Veto knows you have 432 due Anki cards, and he knows you were just about to open Instagram instead of doing them. 
+## The Rules of the House
 
-Veto says *no*. 
+Veto doesn't care how much time you *want* to spend on YouTube. It only cares about how many cards you've reviewed.
 
-Welcome to **Veto**, an uncompromising app blocker that holds your doomscrolling hostage until you finish your flashcards.
+* **Anki is the Currency:** Screen time isn't given; it's earned. Every card you review deposits minutes into your "Time Bank."
+* **Zero-Friction Local Sync:** Veto hooks directly into your local AnkiDroid database. There are no accounts to create and no APIs to ping. It just works instantly.
+* **Deck-Specific Rewards:** You can set custom time payouts for different decks. Make those brutal Kanji cards worth 2 minutes each, while easy vocab gets 30 seconds.
+* **Cost Multipliers:** Really want to punish yourself for opening TikTok? Set a 2x cost multiplier so it drains your earned time twice as fast as other apps.
+* **Strict Mode:** For when you have absolutely zero self-control. When enabled, your blocked apps are completely inaccessible until your due card count hits exactly **0**. No exceptions.
+* **The Bouncer:** Try to open a blocked app when you're out of time, and you'll be greeted by a gorgeous, non-dismissible overlay of Veto the cat politely telling you to get back to work.
 
-<h1></h1>
-
-### 🐈 What is this?
-Veto is a productivity app and digital overlord wrapped in a clean minimalistic UI. It intercepts your attempts to open distracting apps and forces you to stare at a cute cat instead. 
-
-The only way to appease the cat and unlock your apps is by paying the toll. The currency? **Anki reviews.**
-
-### 💸 The Economy (How it Works)
-1. **The Block:** You select your most toxic, time-wasting apps. Veto stands guard as your purrsonal protector.
-2. **The Grind:** You open AnkiDroid and actually do your flashcards.
-3. **The Reward:** Veto watches your Anki database. For every card you successfully review, Veto drops a few minutes into your "Time Bank."
-4. **The Spend:** Want to watch 15 minutes of YouTube? It’s gonna cost you. If your Time Bank hits zero while you're in a blocked app, Veto drops the curtain and kicks you out. 
-
-### ✨ Features
-* **Zero-Friction Sync:** Directly hooks into the AnkiDroid API. No accounts, no syncing delays, just pure local data.
-* **Custom Exchange Rates:** You set the rules. 1 card = 1 minute? 5 cards = 1 minute? You decide how strict the cat gets.
-* **The "Bouncer" Overlay:** A gorgeous, non-dismissible Jetpack Compose screen featuring Veto the cat, gently judging you while showing exactly how many cards you need to do to get back to your memes.
-* **Minty Fresh UI:** A minimalist dashboard utilizing a slick black-and-mint color palette that looks good in both light and dark mode. 
-
-### 🛠 Tech Stack 
-* **UI:** Jetpack Compose.
-* **Local Data:** Room Database & DataStore.
+### 🛠 Tech Stack & Architecture
+* **UI:** 100% Jetpack Compose with a minty-fresh minimalist dashboard.
+* **Navigation:** Built with the bleeding-edge **AndroidX Navigation 3** declarative routing (`NavDisplay` and `entryProvider`), utilizing a type-safe `Screen` sealed class backstack.
+* **Architecture:** Robust Unidirectional Data Flow pattern. Every screen is backed by a ViewModel exposing a single, consolidated `StateFlow<UiState>` created via `combine()`.
+* **Local Data:** Room Database (for app rules and deck profiles) & Jetpack DataStore (for time banking).
 * **The Interceptor:** Android AccessibilityService.
-* **The Snitch:** AnkiDroid ContentProvider API.
 
 <h1></h1>
 

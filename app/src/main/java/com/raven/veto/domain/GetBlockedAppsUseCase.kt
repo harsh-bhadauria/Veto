@@ -1,6 +1,5 @@
 package com.raven.veto.domain
 
-import com.raven.veto.data.local.AppProfileEntity
 import com.raven.veto.data.local.VetoDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
