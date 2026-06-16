@@ -95,6 +95,14 @@ class VetoAccessibilityService : AccessibilityService() {
         // reviewsToday is removed from stats
         Log.d("VetoAccessibility", "Initialized with cached stats: Due=$totalDueCards")
 
+        // Initial check and periodic hourly check for daily allowance
+        serviceScope.launch {
+            while (true) {
+                preferencesManager.applyDailyAllowanceIfNeeded()
+                kotlinx.coroutines.delay(60 * 60 * 1000L) // 1 hour
+            }
+        }
+
         serviceScope.launch {
             // AnkiRepository now updates AppRepository balance automatically.
             // We just need to track totalDueCards for the 'block immediately if <= 0 balance' logic

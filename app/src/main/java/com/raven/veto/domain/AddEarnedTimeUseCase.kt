@@ -18,12 +18,27 @@ class AddEarnedTimeUseCase @Inject constructor(
         return DateTimeFormatter.ISO_LOCAL_DATE.format(adjustedDate)
     }
 
-    suspend operator fun invoke(cardsReviewed: Int) {
-        if (cardsReviewed <= 0) return
+    suspend operator fun invoke(deckDiffs: Map<Long, Int>) {
+        if (deckDiffs.isEmpty()) return
 
-        val exchangeRate = preferencesManager.defaultExchangeRateFlow.first()
-        val earnedMinutes = (cardsReviewed * exchangeRate).toLong()
-        val toAddMillis = earnedMinutes * 60_000L
+        var totalEarnedMinutes = 0f
+        var totalCardsReviewed = 0
+
+        val defaultExchangeRate = preferencesManager.defaultExchangeRateFlow.first()
+
+        for ((deckId, cardsReviewed) in deckDiffs) {
+            if (cardsReviewed <= 0) continue
+
+            val deckProfile = vetoDao.getDeckProfile(deckId)
+            val rate = deckProfile?.minutesPerCard ?: defaultExchangeRate
+            
+            totalEarnedMinutes += (cardsReviewed * rate)
+            totalCardsReviewed += cardsReviewed
+        }
+
+        if (totalCardsReviewed <= 0) return
+
+        val toAddMillis = (totalEarnedMinutes * 60_000L).toLong()
 
         val currentBalance = preferencesManager.currentBalanceMillisFlow.first()
         val newBalance = currentBalance + toAddMillis
@@ -35,7 +50,7 @@ class AddEarnedTimeUseCase @Inject constructor(
         vetoDao.upsertDailyUsage(
             dailyUsage.copy(
                 timeEarnedMillis = dailyUsage.timeEarnedMillis + toAddMillis,
-                cardsReviewed = dailyUsage.cardsReviewed + cardsReviewed
+                cardsReviewed = dailyUsage.cardsReviewed + totalCardsReviewed
             )
         )
     }

@@ -79,46 +79,53 @@ class AnkiRepository @Inject constructor(
 
     private suspend fun queryAnkiStats(): AnkiStats = withContext(Dispatchers.IO) {
         mutex.withLock {
-            // Try getting due counts [learn, review, new] from decks table
             try {
                 withTimeout(5000L) {
-                    // Track daily reviews by comparing totalDue changes over time
-                    val prefs =
-                        context.getSharedPreferences("veto_anki_stats", Context.MODE_PRIVATE)
+                    val prefs = context.getSharedPreferences("veto_anki_stats", Context.MODE_PRIVATE)
+                    val lastDeckCountsStr = prefs.getString("last_deck_due_counts", "{}") ?: "{}"
+                    val lastDeckCounts = org.json.JSONObject(lastDeckCountsStr)
 
-                    var lastTotalDue =
-                        prefs.getInt("last_total_due", -1) // -1 indicates not initialized
+                    val currentDeckCounts = tryQueryDeckCounts() ?: return@withTimeout AnkiStats(
+                        totalDue = prefs.getInt("last_total_due", 0)
+                    )
 
-                    val stats =
-                        tryQueryDeckStats() ?: // Query failed. Return last known good state.
-                        return@withTimeout AnkiStats(
-                            totalDue = if (lastTotalDue == -1) 0 else lastTotalDue
-                        )
+                    val diffs = mutableMapOf<Long, Int>()
+                    var newTotalDue = 0
 
-                    // If this is the first successful query ever (or after clear data)
-                    if (lastTotalDue == -1) {
-                        lastTotalDue = stats.totalDue
-                        prefs.edit {
-                            putInt("last_total_due", lastTotalDue)
+                    for ((deckId, count) in currentDeckCounts) {
+                        newTotalDue += count
+                        val lastCount = if (lastDeckCounts.has(deckId.toString())) lastDeckCounts.getInt(deckId.toString()) else -1
+
+                        if (lastCount != -1) {
+                            val diff = lastCount - count
+                            if (diff > 0) {
+                                diffs[deckId] = diff
+                            }
                         }
                     }
 
-                    // Compare and update Balance
-                    val diff = lastTotalDue - stats.totalDue
-                    if (diff > 0) {
-                        // User reviewed 'diff' cards. Add to balance.
-                        addEarnedTimeUseCase(diff)
+                    val isFirstRun = prefs.getInt("last_total_due", -1) == -1
+                    if (isFirstRun) {
+                        prefs.edit {
+                            putInt("last_total_due", newTotalDue)
+                            putString("last_deck_due_counts", org.json.JSONObject(currentDeckCounts.mapKeys { it.key.toString() }).toString())
+                        }
+                        return@withTimeout AnkiStats(totalDue = newTotalDue)
                     }
 
-                    // Update lastTotalDue to current
-                    if (lastTotalDue != stats.totalDue) {
-                        lastTotalDue = stats.totalDue
+                    if (diffs.isNotEmpty()) {
+                        addEarnedTimeUseCase(diffs)
+                    }
+
+                    val lastTotalDue = prefs.getInt("last_total_due", -1)
+                    if (lastTotalDue != newTotalDue || diffs.isNotEmpty()) {
                         prefs.edit {
-                            putInt("last_total_due", lastTotalDue)
+                            putInt("last_total_due", newTotalDue)
+                            putString("last_deck_due_counts", org.json.JSONObject(currentDeckCounts.mapKeys { it.key.toString() }).toString())
                         }
                     }
 
-                    stats
+                    AnkiStats(totalDue = newTotalDue)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Query interrupted or failed: ${e.message}")
@@ -131,70 +138,67 @@ class AnkiRepository @Inject constructor(
         }
     }
 
-    private fun tryQueryDeckStats(): AnkiStats? {
+    private fun tryQueryDeckCounts(): Map<Long, Int>? {
         try {
             val uri = FlashCardsContract.Deck.CONTENT_ALL_URI
-            val projection = arrayOf(FlashCardsContract.Deck.DECK_COUNTS)
+            val projection = arrayOf(FlashCardsContract.Deck.DECK_ID, FlashCardsContract.Deck.DECK_COUNTS)
+            val cursor = context.contentResolver.query(uri, projection, null, null, null)
+            if (cursor == null) return null
 
-            val cursor = context.contentResolver.query(
-                uri,
-                projection,
-                null,
-                null,
-                null
-            )
-
-            if (cursor == null) {
-                Log.e(TAG, "Deck query returned null cursor for $uri")
-                return null
-            }
-
+            val map = mutableMapOf<Long, Int>()
             cursor.use {
-                var totalNew = 0
-                var totalLearn = 0
-                var totalReview = 0
-
+                val idColIdx = it.getColumnIndex(FlashCardsContract.Deck.DECK_ID).takeIf { idx -> idx != -1 } ?: it.getColumnIndex("_id")
                 val countsColIdx = it.getColumnIndex(FlashCardsContract.Deck.DECK_COUNTS)
 
-                if (countsColIdx == -1) {
-                    Log.e(
-                        TAG,
-                        "'${FlashCardsContract.Deck.DECK_COUNTS}' column not found in decks table"
-                    )
+                if (countsColIdx == -1 || idColIdx == -1) {
+                    Log.e(TAG, "Column not found. Available: ${it.columnNames.joinToString()}")
                     return null
                 }
 
                 while (it.moveToNext()) {
+                    val deckId = it.getLong(idColIdx)
                     val countsJson = it.getString(countsColIdx)
-
+                    var due = 0
                     if (countsJson != null) {
                         try {
-                            // format: [learn, review, new]
                             val counts = JSONArray(countsJson)
-                            val learn = counts.optInt(0, 0)
-                            val review = counts.optInt(1, 0)
-                            val new = counts.optInt(2, 0)
-
-                            totalLearn += learn
-                            totalReview += review
-                            totalNew += new
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error parsing deck counts JSON: $countsJson", e)
-                        }
+                            due = counts.optInt(0, 0) + counts.optInt(1, 0) + counts.optInt(2, 0)
+                        } catch (e: Exception) { }
                     }
+                    map[deckId] = due
                 }
-                val totalDue = totalLearn + totalReview + totalNew
-                Log.d(TAG, "Total Due: $totalDue (L:$totalLearn, R:$totalReview, N:$totalNew)")
-                return AnkiStats(
-                    new = totalNew,
-                    learn = totalLearn,
-                    review = totalReview,
-                    totalDue = totalDue
-                )
             }
+            return map
         } catch (e: Exception) {
             Log.e(TAG, "Deck counts query failed: ${e.message}")
             return null
         }
+    }
+
+    data class DeckInfo(val id: Long, val name: String)
+
+    suspend fun getAvailableDecks(): List<DeckInfo> = withContext(Dispatchers.IO) {
+        val decks = mutableListOf<DeckInfo>()
+        val uri = FlashCardsContract.Deck.CONTENT_ALL_URI
+        val projection = arrayOf("_id", "name", "deck_name") // cover bases for name
+
+        try {
+            val cursor = context.contentResolver.query(uri, null, null, null, null) // null projection to get all columns
+            cursor?.use {
+                val idIdx = it.getColumnIndex("_id").takeIf { idx -> idx != -1 } ?: it.getColumnIndex("deck_id")
+                val nameIdx = it.getColumnIndex("name").takeIf { idx -> idx != -1 } ?: it.getColumnIndex("deck_name")
+                
+                if (idIdx != -1 && nameIdx != -1) {
+                    while (it.moveToNext()) {
+                        decks.add(DeckInfo(it.getLong(idIdx), it.getString(nameIdx)))
+                    }
+                } else {
+                    Log.e(TAG, "Columns not found for deck info. Available: ${it.columnNames.joinToString()}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching decks: ${e.message}")
+        }
+        return@withContext decks
     }
 }

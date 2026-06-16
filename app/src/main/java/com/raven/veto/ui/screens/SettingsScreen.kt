@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raven.veto.ui.viewmodels.SettingsViewModel
@@ -23,11 +24,10 @@ import com.raven.veto.ui.viewmodels.SettingsViewModel
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToDeckSettings: () -> Unit = {}
 ) {
-    val exchangeRate by viewModel.exchangeRate.collectAsState()
-    val strictModeEnabled by viewModel.strictModeEnabled.collectAsState()
-
+    val uiState by viewModel.uiState.collectAsState()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -48,12 +48,16 @@ fun SettingsScreen(
         ) {
             Text("Global Exchange Rate", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("1 Anki Card = ${String.format("%.1f", exchangeRate)} Minutes", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = "1 card = ${"%.1f".format(uiState.exchangeRate)} minutes",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
             Slider(
-                value = exchangeRate,
+                value = uiState.exchangeRate,
                 onValueChange = { viewModel.updateExchangeRate(it) },
                 valueRange = 0.1f..10.0f,
                 steps = 99
@@ -61,6 +65,14 @@ fun SettingsScreen(
             
             Spacer(modifier = Modifier.height(8.dp))
             Text("Adjust how strictly Veto rewards your flashcard reviews.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onNavigateToDeckSettings,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Configure Deck Specific Rates")
+            }
             
             Spacer(modifier = Modifier.height(32.dp))
             HorizontalDivider()
@@ -89,7 +101,7 @@ fun SettingsScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Enable Strict Mode", modifier = Modifier.weight(1f))
                 Switch(
-                    checked = strictModeEnabled,
+                    checked = uiState.strictModeEnabled,
                     onCheckedChange = { isChecked ->
                         if (isChecked) {
                             if (!dpm.isAdminActive(component)) {

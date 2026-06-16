@@ -15,8 +15,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
+import com.raven.veto.ui.uistates.MainUiState
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,39 +32,25 @@ class MainViewModel @Inject constructor(
     private val refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val ankiStats: StateFlow<AnkiStats> = refreshTrigger
-        .onStart { emit(Unit) }
-        .flatMapLatest {
-            ankiRepository.getAnkiStats()
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = AnkiStats()
+    val uiState: StateFlow<MainUiState> = combine(
+        refreshTrigger
+            .onStart { emit(Unit) }
+            .flatMapLatest { ankiRepository.getAnkiStats() },
+        getAvailableTimeUseCase().map { (it / 60_000).toLong() },
+        vetoDao.getRecentUsageFlow(7),
+        refreshTrigger.map { java.time.Instant.now().toEpochMilli() }.onStart { emit(0L) }
+    ) { stats, minutes, usage, updated ->
+        MainUiState(
+            availableMinutes = minutes,
+            ankiStats = stats,
+            lastUpdated = updated,
+            recentUsage = usage
         )
-
-    val availableMinutes: StateFlow<Int> = getAvailableTimeUseCase()
-        .map { (it / 60_000).toInt() }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = 0
-        )
-
-    val recentUsage: StateFlow<List<DailyUsageEntity>> = vetoDao.getRecentUsageFlow(7)
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-
-    val lastUpdated: StateFlow<Long> = refreshTrigger
-        .map { java.time.Instant.now().toEpochMilli() }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = 0L
-        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = MainUiState()
+    )
 
     fun fetchAnkiData() {
         Log.d("VetoAnki", "fetchAnkiData called")

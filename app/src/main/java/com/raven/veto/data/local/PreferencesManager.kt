@@ -11,6 +11,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,6 +26,7 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
         private val CUSTOM_EXCHANGE_RATE = floatPreferencesKey("custom_exchange_rate")
         private val STRICT_MODE = booleanPreferencesKey("strict_mode")
         val CURRENT_BALANCE_MILLIS = longPreferencesKey("current_balance_millis")
+        private val LAST_DAILY_ALLOWANCE_DATE = androidx.datastore.preferences.core.stringPreferencesKey("last_daily_allowance_date")
     }
 
     val defaultExchangeRateFlow: Flow<Float> = context.dataStore.data.map { preferences ->
@@ -52,6 +56,31 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
     suspend fun setCurrentBalanceMillis(balance: Long) {
         context.dataStore.edit { preferences ->
             preferences[CURRENT_BALANCE_MILLIS] = balance
+        }
+    }
+
+    suspend fun applyDailyAllowanceIfNeeded() {
+        val now = LocalDateTime.now()
+        val adjustedDate = if (now.hour < 4) now.minusDays(1) else now
+        val todayStr = DateTimeFormatter.ISO_LOCAL_DATE.format(adjustedDate)
+
+        val prefs = context.dataStore.data.first()
+        val lastDate = prefs[LAST_DAILY_ALLOWANCE_DATE] ?: ""
+
+        if (lastDate != todayStr) {
+            val currentBalance = prefs[CURRENT_BALANCE_MILLIS] ?: 0L
+            // convert to minutes to make math easier, avoiding negative issues if balance < 0
+            val currentBalanceMins = Math.max(0L, currentBalance / 60000L)
+            
+            // Cap rollover at 10 minutes
+            val rolloverMins = minOf(10L, currentBalanceMins)
+            // Add 10 new daily minutes
+            val newBalanceMins = rolloverMins + 10L
+            
+            context.dataStore.edit { preferences ->
+                preferences[CURRENT_BALANCE_MILLIS] = newBalanceMins * 60000L
+                preferences[LAST_DAILY_ALLOWANCE_DATE] = todayStr
+            }
         }
     }
 }

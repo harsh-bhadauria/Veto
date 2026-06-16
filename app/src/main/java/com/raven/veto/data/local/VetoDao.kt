@@ -20,9 +20,17 @@ interface VetoDao {
     @Query("SELECT * FROM app_profiles")
     fun getAllAppProfilesFlow(): Flow<List<AppProfileEntity>>
 
-    @Query("SELECT * FROM app_profiles WHERE packageName = :packageName")
+    @Query("SELECT * FROM app_profiles WHERE packageName = :packageName LIMIT 1")
     suspend fun getAppProfile(packageName: String): AppProfileEntity?
 
+    @Query("SELECT * FROM deck_profiles")
+    fun getAllDeckProfilesFlow(): kotlinx.coroutines.flow.Flow<List<DeckProfileEntity>>
+
+    @Query("SELECT * FROM deck_profiles WHERE deckId = :deckId LIMIT 1")
+    suspend fun getDeckProfile(deckId: Long): DeckProfileEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDeckProfile(profile: DeckProfileEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAppProfile(profile: AppProfileEntity)

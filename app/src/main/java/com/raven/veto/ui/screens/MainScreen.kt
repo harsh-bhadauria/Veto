@@ -43,38 +43,22 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.raven.veto.ui.screens.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
-    var showAppSelector by remember { mutableStateOf(false) }
-    var showPermissionsScreen by remember { mutableStateOf(false) }
-    var showSettingsScreen by remember { mutableStateOf(false) }
+fun MainScreen(
+    viewModel: MainViewModel = hiltViewModel<MainViewModel>(),
+    onNavigateTo: (Screen) -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    
     var isAnkiGranted by remember { mutableStateOf(false) }
     var isNotificationGranted by remember { mutableStateOf(false) }
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
 
-    if (showAppSelector) {
-        AppSelectorScreen(onNavigateBack = { showAppSelector = false })
-        return
-    }
-
-    if (showPermissionsScreen) {
-        PermissionsScreen(onNavigateBack = { showPermissionsScreen = false })
-        return
-    }
-
-    if (showSettingsScreen) {
-        SettingsScreen(onNavigateBack = { showSettingsScreen = false })
-        return
-    }
-
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val ankiStats by viewModel.ankiStats.collectAsState()
-    val availableMinutes by viewModel.availableMinutes.collectAsState()
-    val lastUpdated by viewModel.lastUpdated.collectAsState()
-    val recentUsage by viewModel.recentUsage.collectAsState()
     val permission = "com.ichi2.anki.permission.READ_WRITE_DATABASE"
 
     // Check permissions
@@ -165,7 +149,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
                     IconButton(onClick = { viewModel.fetchAnkiData() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
-                    IconButton(onClick = { showSettingsScreen = true }) {
+                    IconButton(onClick = { onNavigateTo(Screen.Settings) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
@@ -206,7 +190,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "$availableMinutes min",
+                        text = "${uiState.availableMinutes} min",
                         style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Black),
                     )
                 }
@@ -232,12 +216,12 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
                 QuickActionButton(
                     icon = Icons.Default.Lock,
                     label = "Blocked Apps",
-                    onClick = { showAppSelector = true }
+                    onClick = { onNavigateTo(Screen.AppSelector) }
                 )
                 QuickActionButton(
                     icon = if (allPermissionsGranted) Icons.Default.Settings else Icons.Default.Warning,
                     label = "Permissions",
-                    onClick = { showPermissionsScreen = true },
+                    onClick = { onNavigateTo(Screen.Permissions) },
                     isWarning = !allPermissionsGranted
                 )
             }
@@ -266,7 +250,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                NumberFormat.getInstance().format(ankiStats.totalDue),
+                                NumberFormat.getInstance().format(uiState.ankiStats.totalDue),
                                 style = MaterialTheme.typography.headlineLarge,
                                 fontWeight = FontWeight.Bold
                             )
@@ -282,9 +266,9 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
                         )
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatRow("New", ankiStats.new, AnkiNewBlue)
-                            StatRow("Learn", ankiStats.learn, AnkiLearnRed)
-                            StatRow("Review", ankiStats.review, AnkiReviewGreen)
+                            StatRow("New", uiState.ankiStats.new, AnkiNewBlue)
+                            StatRow("Learn", uiState.ankiStats.learn, AnkiLearnRed)
+                            StatRow("Review", uiState.ankiStats.review, AnkiReviewGreen)
                         }
                     }
                 }
@@ -306,7 +290,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
-                if (recentUsage.isEmpty()) {
+                if (uiState.recentUsage.isEmpty()) {
                     Text(
                         text = "No usage data yet. Do some Anki reviews or use some blocked apps to start tracking!",
                         style = MaterialTheme.typography.bodyMedium,
@@ -317,7 +301,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
                             .padding(16.dp)
                     )
                 } else {
-                    recentUsage.forEach { usage ->
+                    uiState.recentUsage.forEach { usage ->
                         val earnedMins = usage.timeEarnedMillis / 60_000
                         val spentMins = usage.timeSpentMillis / 60_000
 
@@ -355,11 +339,11 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
             }
 
             // Last Updated
-            if (lastUpdated > 0) {
+            if (uiState.lastUpdated > 0) {
                 Spacer(modifier = Modifier.height(24.dp))
                 val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
                 Text(
-                    text = "Last synced with Anki at ${sdf.format(Date(lastUpdated))}",
+                    text = "Last synced with Anki at ${sdf.format(Date(uiState.lastUpdated))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),

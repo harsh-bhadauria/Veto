@@ -7,8 +7,9 @@ import com.raven.veto.data.AnkiRepository
 import com.raven.veto.data.local.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import com.raven.veto.ui.uistates.SettingsUiState
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,20 +19,16 @@ class SettingsViewModel @Inject constructor(
     private val ankiRepository: AnkiRepository
 ) : ViewModel() {
 
-    val exchangeRate: StateFlow<Float> = preferencesManager.defaultExchangeRateFlow
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = 1.0f
-        )
-
-    val strictModeEnabled: StateFlow<Boolean> = preferencesManager.strictModeFlow
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = false
-        )
-
+    val uiState: kotlinx.coroutines.flow.StateFlow<SettingsUiState> = combine(
+        preferencesManager.defaultExchangeRateFlow,
+        preferencesManager.strictModeFlow
+    ) { rate, strict ->
+        SettingsUiState(exchangeRate = rate, strictModeEnabled = strict)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = SettingsUiState()
+    )
     fun updateExchangeRate(rate: Float) {
         viewModelScope.launch {
             preferencesManager.setDefaultExchangeRate(rate)

@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.raven.veto.ui.screens.MainScreen
+import com.raven.veto.ui.VetoApp
 import com.raven.veto.ui.theme.VetoTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             VetoTheme {
-                MainScreen()
+                VetoApp()
             }
         }
     }

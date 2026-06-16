@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlinx.coroutines.flow.map
+import com.raven.veto.ui.uistates.AppSelectorUiState
 
 @HiltViewModel
 class AppSelectorViewModel @Inject constructor(
@@ -31,31 +32,17 @@ class AppSelectorViewModel @Inject constructor(
 
     private val _rawApps = MutableStateFlow<List<AppInfo>>(emptyList())
     private val _isLoading = MutableStateFlow(true)
-    private val _searchQuery = MutableStateFlow("")
-
-    val strictModeEnabled: StateFlow<Boolean> = preferencesManager.strictModeFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    val totalDueCards: StateFlow<Int> = ankiRepository.getAnkiStats()
-        .map { it.totalDue }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-    val searchQuery: StateFlow<String> = _searchQuery
 
     val uiState: StateFlow<AppSelectorUiState> = combine(
         _rawApps,
         vetoDao.getAllAppProfilesFlow(),
-        _searchQuery,
+        preferencesManager.strictModeFlow,
+        ankiRepository.getAnkiStats(),
         _isLoading
-    ) { apps, profiles, query, isLoading ->
+    ) { apps, profiles, strictMode, stats, isLoading ->
         val profileMap = profiles.associateBy { it.packageName }
-        val filteredApps = if (query.isBlank()) {
-            apps
-        } else {
-            apps.filter { it.name.contains(query, ignoreCase = true) }
-        }
-
-        val mappedApps = filteredApps.map { app ->
+        
+        val mappedApps = apps.map { app ->
             val profile = profileMap[app.packageName]
             app.copy(
                 isBlocked = profile?.isBlocked == true,
@@ -65,7 +52,9 @@ class AppSelectorViewModel @Inject constructor(
 
         AppSelectorUiState(
             apps = mappedApps,
-            isLoading = isLoading
+            isLoading = isLoading,
+            strictModeEnabled = strictMode,
+            totalDueCards = stats.totalDue
         )
     }.stateIn(
         scope = viewModelScope,
@@ -80,15 +69,10 @@ class AppSelectorViewModel @Inject constructor(
     private fun loadApps() {
         viewModelScope.launch {
             _isLoading.value = true
-            // Load apps without caring about blocked status initially
             val apps = appRepository.getInstalledApps()
             _rawApps.value = apps
             _isLoading.value = false
         }
-    }
-
-    fun onSearchQueryChanged(query: String) {
-        _searchQuery.value = query
     }
 
     fun toggleAppBlock(packageName: String) {
@@ -104,9 +88,4 @@ class AppSelectorViewModel @Inject constructor(
         }
     }
 }
-
-data class AppSelectorUiState(
-    val apps: List<AppInfo> = emptyList(),
-    val isLoading: Boolean = false
-)
 

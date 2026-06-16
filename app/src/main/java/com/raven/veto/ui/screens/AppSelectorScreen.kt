@@ -29,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -46,9 +49,7 @@ fun AppSelectorScreen(
     viewModel: AppSelectorViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val strictModeEnabled by viewModel.strictModeEnabled.collectAsStateWithLifecycle()
-    val totalDueCards by viewModel.totalDueCards.collectAsStateWithLifecycle()
+    var searchQuery by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -72,7 +73,7 @@ fun AppSelectorScreen(
         ) {
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = viewModel::onSearchQueryChanged,
+                onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
@@ -88,6 +89,14 @@ fun AppSelectorScreen(
                     CircularProgressIndicator()
                 }
             } else {
+                val filteredApps = remember(uiState.apps, searchQuery) {
+                    if (searchQuery.isBlank()) {
+                        uiState.apps
+                    } else {
+                        uiState.apps.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                    }
+                }
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -95,13 +104,13 @@ fun AppSelectorScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 16.dp)
                 ) {
                     items(
-                        items = uiState.apps,
+                        items = filteredApps,
                         key = { it.packageName }
                     ) { app ->
                         AppListItem(
                             app = app,
-                            strictModeEnabled = strictModeEnabled,
-                            totalDueCards = totalDueCards,
+                            strictModeEnabled = uiState.strictModeEnabled,
+                            totalDueCards = uiState.totalDueCards,
                             onToggle = { viewModel.toggleAppBlock(app.packageName) },
                             onMultiplierChange = { newMultiplier ->
                                 viewModel.updateAppMultiplier(app.packageName, newMultiplier)
