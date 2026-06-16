@@ -1,69 +1,50 @@
 package com.raven.veto.ui.screens
 
-
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.raven.veto.ui.components.StatItem
-import com.raven.veto.ui.components.HeroCard
-import com.raven.veto.ui.components.LocalHeroTextColor
-import com.raven.veto.ui.components.TimeStatusCard
-import com.raven.veto.ui.theme.AnkiNewBlue
 import com.raven.veto.ui.theme.AnkiLearnRed
+import com.raven.veto.ui.theme.AnkiNewBlue
 import com.raven.veto.ui.theme.AnkiReviewGreen
-import com.raven.veto.ui.theme.vetoColors
 import com.raven.veto.ui.viewmodels.MainViewModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
     var showAppSelector by remember { mutableStateOf(false) }
@@ -134,18 +115,18 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
         checkPermissions()
 
         if (ContextCompat.checkSelfPermission(
-                context,
-                permission
-            ) != PackageManager.PERMISSION_GRANTED
+            context,
+            permission
+        ) != PackageManager.PERMISSION_GRANTED
         ) {
             launcher.launch(permission)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
             ) {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -158,9 +139,9 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
             if (event == Lifecycle.Event.ON_RESUME) {
                 checkPermissions()
                 if (ContextCompat.checkSelfPermission(
-                        context,
-                        permission
-                    ) == PackageManager.PERMISSION_GRANTED
+                    context,
+                    permission
+                ) == PackageManager.PERMISSION_GRANTED
                 ) {
                     viewModel.fetchAnkiData()
                 }
@@ -172,78 +153,150 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
         }
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Veto Dashboard", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                ),
+                actions = {
+                    IconButton(onClick = { viewModel.fetchAnkiData() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
+                    IconButton(onClick = { showSettingsScreen = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
+            )
+        },
+        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Hero Card - Main Stat
-            HeroCard(
-                title = "Cards Due",
-                subtitle = if (ankiStats.totalDue > 0) "Time to practice!" else "All caught up!",
-                modifier = Modifier.fillMaxWidth(),
-                content = {
-                    Text(
-                        text = NumberFormat.getInstance().format(ankiStats.totalDue),
-                        style = MaterialTheme.typography.displayLarge,
-                        color = LocalHeroTextColor.current,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            )
-
-            // Time Available Status Card
-            TimeStatusCard(
-                availableMinutes = availableMinutes
-            )
-
-            // Breakdown Stats - Grid Layout
-            Column(
+            // Balance Card
+            Card(
                 modifier = Modifier
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                Text(
-                    text = "Breakdown",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Row(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp, horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    StatItem(
-                        label = "New",
-                        count = ankiStats.new,
-                        color = AnkiNewBlue,
-                        modifier = Modifier.weight(1f)
+                    Text(
+                        "AVAILABLE TIME",
+                        style = MaterialTheme.typography.labelMedium,
+                        letterSpacing = 1.5.sp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
-                    StatItem(
-                        label = "Learn",
-                        count = ankiStats.learn,
-                        color = AnkiLearnRed,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatItem(
-                        label = "Review",
-                        count = ankiStats.review,
-                        color = AnkiReviewGreen,
-                        modifier = Modifier.weight(1f)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "$availableMinutes min",
+                        style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Black),
                     )
                 }
             }
 
+            // Quick Actions Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                QuickActionButton(
+                    icon = Icons.Default.Apps,
+                    label = "Anki",
+                    onClick = {
+                        val launchIntent = context.packageManager.getLaunchIntentForPackage("com.ichi2.anki")
+                        if (launchIntent != null) {
+                            context.startActivity(launchIntent)
+                        }
+                    }
+                )
+                QuickActionButton(
+                    icon = Icons.Default.Lock,
+                    label = "Blocked Apps",
+                    onClick = { showAppSelector = true }
+                )
+                QuickActionButton(
+                    icon = if (allPermissionsGranted) Icons.Default.Settings else Icons.Default.Warning,
+                    label = "Permissions",
+                    onClick = { showPermissionsScreen = true },
+                    isWarning = !allPermissionsGranted
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Anki Stats Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Text("Anki Due", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                NumberFormat.getInstance().format(ankiStats.totalDue),
+                                style = MaterialTheme.typography.headlineLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text("Total Cards", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        // Vertical divider
+                        Box(
+                            modifier = Modifier
+                                .height(50.dp)
+                                .width(1.dp)
+                                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatRow("New", ankiStats.new, AnkiNewBlue)
+                            StatRow("Learn", ankiStats.learn, AnkiLearnRed)
+                            StatRow("Review", ankiStats.review, AnkiReviewGreen)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Recent Usage Stats
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
@@ -270,18 +323,30 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
 
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(text = usage.date, style = MaterialTheme.typography.bodyMedium)
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(text = "Earned: $earnedMins m", color = AnkiReviewGreen, style = MaterialTheme.typography.bodySmall)
-                                    Text(text = "Spent: $spentMins m", color = AnkiLearnRed, style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    text = usage.date,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("Earned", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("+${earnedMins}m", color = AnkiReviewGreen, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("Spent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("-${spentMins}m", color = AnkiLearnRed, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -291,131 +356,84 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel<MainViewModel>()) {
 
             // Last Updated
             if (lastUpdated > 0) {
+                Spacer(modifier = Modifier.height(24.dp))
                 val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
                 Text(
-                    text = "Last updated: ${sdf.format(Date(lastUpdated))}",
+                    text = "Last synced with Anki at ${sdf.format(Date(lastUpdated))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
-            }
-
-            // Action Buttons - 2x2 Grid
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // First Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    ActionButton(
-                        label = "Open AnkiDroid",
-                        icon = Icons.Default.Apps,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            val launchIntent = context.packageManager.getLaunchIntentForPackage("com.ichi2.anki")
-                            if (launchIntent != null) {
-                                context.startActivity(launchIntent)
-                            }
-                        }
-                    )
-
-                    ActionButton(
-                        label = "Refresh",
-                        icon = Icons.Default.Refresh,
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.fetchAnkiData() }
-                    )
-                }
-
-                // Second Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    ActionButton(
-                        label = "Blocked Apps",
-                        icon = Icons.Default.Lock,
-                        modifier = Modifier.weight(1f),
-                        onClick = { showAppSelector = true }
-                    )
-
-                    ActionButton(
-                        label = "Permissions",
-                        icon = Icons.Default.Settings, // Will change icon below
-                        modifier = Modifier.weight(1f),
-                        onClick = { showPermissionsScreen = true },
-                        isHighlighted = !allPermissionsGranted
-                    )
-                }
-
-                // Third Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    ActionButton(
-                        label = "Settings",
-                        icon = Icons.Default.Settings,
-                        modifier = Modifier.weight(1f),
-                        onClick = { showSettingsScreen = true }
-                    )
-
-                    // Empty spacer to align button to left
-                    Spacer(modifier = Modifier.weight(1f))
-                }
+                Spacer(modifier = Modifier.height(24.dp))
+            } else {
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
 }
 
 @Composable
-fun ActionButton(
-    label: String,
+fun QuickActionButton(
     icon: ImageVector,
-    modifier: Modifier = Modifier,
+    label: String,
     onClick: () -> Unit,
-    isHighlighted: Boolean = false
+    isWarning: Boolean = false
 ) {
-    val colors = vetoColors()
-    val backgroundColor = if (isHighlighted) {
-        Color(0xFFEF5350) // Red for warning
-    } else {
-        colors.buttonBackground
-    }
-    val textColor = if (isHighlighted) Color.White else colors.buttonText
+    val containerColor = if (isWarning) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
+    val contentColor = if (isWarning) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
 
-    Button(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = backgroundColor
-        )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(80.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(8.dp)
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier
+                .size(56.dp)
+                .background(containerColor, CircleShape)
+                .clip(CircleShape)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                modifier = Modifier
-                    .padding(bottom = 8.dp),
-                tint = textColor
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                textAlign = TextAlign.Center,
-                color = textColor
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
             )
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+fun StatRow(label: String, count: Int, color: Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.width(100.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(color, CircleShape)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

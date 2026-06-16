@@ -18,11 +18,15 @@ class ConsumeTimeUseCase @Inject constructor(
         return DateTimeFormatter.ISO_LOCAL_DATE.format(adjustedDate)
     }
 
-    suspend operator fun invoke(millis: Long) {
-        if (millis <= 0) return
+    suspend operator fun invoke(packageName: String, realTimeMillis: Long) {
+        if (realTimeMillis <= 0) return
+
+        val profile = vetoDao.getAppProfile(packageName)
+        val multiplier = profile?.costMultiplier ?: 1.0f
+        val costMillis = (realTimeMillis * multiplier).toLong()
 
         val currentBalance = preferencesManager.currentBalanceMillisFlow.first()
-        val newBalance = (currentBalance - millis).coerceAtLeast(0L)
+        val newBalance = (currentBalance - costMillis).coerceAtLeast(0L)
         
         preferencesManager.setCurrentBalanceMillis(newBalance)
 
@@ -30,7 +34,7 @@ class ConsumeTimeUseCase @Inject constructor(
         val dailyUsage = vetoDao.getDailyUsage(today) ?: DailyUsageEntity(date = today)
         vetoDao.upsertDailyUsage(
             dailyUsage.copy(
-                timeSpentMillis = dailyUsage.timeSpentMillis + millis
+                timeSpentMillis = dailyUsage.timeSpentMillis + realTimeMillis
             )
         )
     }

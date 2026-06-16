@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -96,7 +97,10 @@ fun AppSelectorScreen(
                     ) { app ->
                         AppListItem(
                             app = app,
-                            onToggle = { viewModel.toggleAppBlock(app.packageName) }
+                            onToggle = { viewModel.toggleAppBlock(app.packageName) },
+                            onMultiplierChange = { newMultiplier ->
+                                viewModel.updateAppMultiplier(app.packageName, newMultiplier)
+                            }
                         )
                     }
                 }
@@ -108,12 +112,12 @@ fun AppSelectorScreen(
 @Composable
 fun AppListItem(
     app: AppInfo,
-    onToggle: (Boolean) -> Unit
+    onToggle: (Boolean) -> Unit,
+    onMultiplierChange: (Float) -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggle(!app.isBlocked) }
             .padding(vertical = 8.dp)
             .background(
                 color = if (app.isBlocked)
@@ -122,45 +126,70 @@ fun AppListItem(
                     androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             )
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(12.dp)
     ) {
-        val bitmap = app.icon?.toBitmap()?.asImageBitmap()
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp)
-            )
-        } else {
-            Box(modifier = Modifier.size(48.dp))
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(
-            modifier = Modifier.weight(1f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggle(!app.isBlocked) },
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = app.name,
-                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-            )
-            Text(
-                text = if (app.isBlocked) "Blocked" else "Allowed",
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                color = if (app.isBlocked)
-                    androidx.compose.ui.graphics.Color(0xFFF44336)
-                else
-                    androidx.compose.ui.graphics.Color(0xFF4CAF50),
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            val bitmap = app.icon?.toBitmap()?.asImageBitmap()
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp)
+                )
+            } else {
+                Box(modifier = Modifier.size(48.dp))
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = app.name,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                )
+                Text(
+                    text = if (app.isBlocked) "Blocked (${app.costMultiplier}x Cost)" else "Allowed",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = if (app.isBlocked)
+                        androidx.compose.ui.graphics.Color(0xFFF44336)
+                    else
+                        androidx.compose.ui.graphics.Color(0xFF4CAF50),
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+            }
+
+            Checkbox(
+                checked = app.isBlocked,
+                onCheckedChange = onToggle
             )
         }
-
-        Checkbox(
-            checked = app.isBlocked,
-            onCheckedChange = onToggle
-        )
+        
+        if (app.isBlocked) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Cost: ${String.format("%.1f", app.costMultiplier)}x", 
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(60.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                androidx.compose.material3.Slider(
+                    value = app.costMultiplier,
+                    onValueChange = onMultiplierChange,
+                    valueRange = 0.5f..5.0f,
+                    steps = 8,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
 

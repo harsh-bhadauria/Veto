@@ -7,5 +7,5 @@ import androidx.room.PrimaryKey
 data class AppProfileEntity(
     @PrimaryKey val packageName: String,
     val isBlocked: Boolean = false,
-    val customExchangeRate: Float? = null // null means use global default
+    val costMultiplier: Float = 1.0f
 )

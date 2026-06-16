@@ -216,7 +216,7 @@ class VetoAccessibilityService : AccessibilityService() {
                 if (currentBlockedPackage != packageName) break
 
                 // Consume time
-                consumeTimeUseCase(updateInterval)
+                consumeTimeUseCase(packageName, updateInterval)
 
                 val availableMillis = currentAvailableMillis
 

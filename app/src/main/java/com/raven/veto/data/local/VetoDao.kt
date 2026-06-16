@@ -23,6 +23,7 @@ interface VetoDao {
     @Query("SELECT * FROM app_profiles WHERE packageName = :packageName")
     suspend fun getAppProfile(packageName: String): AppProfileEntity?
 
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAppProfile(profile: AppProfileEntity)
 

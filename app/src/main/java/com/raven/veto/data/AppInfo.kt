@@ -6,6 +6,6 @@ data class AppInfo(
     val name: String,
     val packageName: String,
     val icon: Drawable? = null,
-    val isBlocked: Boolean = false
+    val isBlocked: Boolean = false,
+    val costMultiplier: Float = 1.0f
 )
-
