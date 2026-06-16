@@ -21,6 +21,18 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import android.graphics.PixelFormat
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.provider.Settings
+import com.raven.veto.data.local.PreferencesManager
+import com.raven.veto.data.local.VetoDao
 
 @SuppressLint("AccessibilityPolicy")
 @AndroidEntryPoint
@@ -31,6 +43,12 @@ class VetoAccessibilityService : AccessibilityService() {
 
     @Inject
     lateinit var getAvailableTimeUseCase: GetAvailableTimeUseCase
+
+    @Inject
+    lateinit var vetoDao: VetoDao
+
+    @Inject
+    lateinit var preferencesManager: PreferencesManager
 
     @Inject
     lateinit var getBlockedAppsUseCase: GetBlockedAppsUseCase
@@ -60,10 +78,16 @@ class VetoAccessibilityService : AccessibilityService() {
     private val notificationId = 1001
     private val channelId = "veto_usage_channel"
 
+    private var windowManager: WindowManager? = null
+    private var overlayView: View? = null
+    private var lastWarnedMinute: Int = -1
+    private var strictModeEnabled: Boolean = false
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d("VetoAccessibility", "Service connected")
         createNotificationChannel()
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
         // Initialize with cached stats immediately to avoid false positive blocks on startup
         val cachedStats = ankiRepository.getCachedStats()
@@ -101,6 +125,12 @@ class VetoAccessibilityService : AccessibilityService() {
                 currentBlockedApps = apps
             }
         }
+
+        serviceScope.launch {
+            preferencesManager.strictModeFlow.collectLatest { enabled ->
+                strictModeEnabled = enabled
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -119,6 +149,37 @@ class VetoAccessibilityService : AccessibilityService() {
         }
 
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val packageName = event.packageName?.toString() ?: return
+            
+            // Settings Blockade (Strict Mode)
+            if (packageName == "com.android.settings" && strictModeEnabled && totalDueCards > 0) {
+                val allText = StringBuilder()
+                fun collectAllText(node: android.view.accessibility.AccessibilityNodeInfo?) {
+                    if (node == null) return
+                    node.text?.let { allText.append(it).append(" ") }
+                    node.contentDescription?.let { allText.append(it).append(" ") }
+                    for (i in 0 until node.childCount) {
+                        collectAllText(node.getChild(i))
+                    }
+                }
+                collectAllText(rootInActiveWindow)
+                event.text.forEach { allText.append(it).append(" ") }
+                
+                val textLower = allText.toString().lowercase()
+                val hasVeto = textLower.contains("veto")
+                
+                val isAppInfo = hasVeto && (textLower.contains("force stop") || textLower.contains("uninstall") || textLower.contains("clear data"))
+                val isDeviceAdmin = hasVeto && (textLower.contains("deactivate") || textLower.contains("remove active admin"))
+                val isAccessibility = hasVeto && (textLower.contains("use veto") || textLower.contains("stop veto"))
+
+                if (isAppInfo || isDeviceAdmin || isAccessibility) {
+                    Log.d("VetoAccessibility", "Strict Mode blocked Settings access to Veto")
+                    android.widget.Toast.makeText(this, "Strict Mode: Finish Anki cards first!", android.widget.Toast.LENGTH_SHORT).show()
+                    blockApp(packageName, totalDueCards, 0, isStrictModeBlock = true)
+                    return
+                }
+            }
+
             // Track raw window state first
             if (packageName != this.packageName) {
                 currentWindowPackage = packageName
@@ -219,6 +280,15 @@ class VetoAccessibilityService : AccessibilityService() {
                 consumeTimeUseCase(packageName, updateInterval)
 
                 val availableMillis = currentAvailableMillis
+                val profile = vetoDao.getAppProfile(packageName)
+                val multiplier = profile?.costMultiplier ?: 1.0f
+                val effectiveMinutesLeft = (availableMillis / (multiplier * 60000)).toInt()
+
+                if (effectiveMinutesLeft in 1..5) {
+                    withContext(Dispatchers.Main) {
+                        showCatWarning(effectiveMinutesLeft)
+                    }
+                }
 
                 // Notification updates via flow observation in onServiceConnected
 
@@ -262,6 +332,10 @@ class VetoAccessibilityService : AccessibilityService() {
             kotlinx.coroutines.delay(10000L) // 10 seconds grace period for transient windows (system UI, etc)
             stopUsageTimer()
             currentBlockedPackage = null
+            lastWarnedMinute = -1 // Reset warning state
+            withContext(Dispatchers.Main) {
+                removeCatWarning()
+            }
         }
     }
 
@@ -322,7 +396,7 @@ class VetoAccessibilityService : AccessibilityService() {
         notificationManager.cancel(notificationId)
     }
 
-    private fun blockApp(packageName: String, due: Int, availableMinutes: Int) {
+    private fun blockApp(packageName: String, due: Int, availableMinutes: Int, isStrictModeBlock: Boolean = false) {
         val now = java.time.Instant.now().toEpochMilli()
         if (now - lastBlockTime < 1000) {
             Log.d("VetoAccessibility", "Debouncing block for $packageName")
@@ -336,10 +410,101 @@ class VetoAccessibilityService : AccessibilityService() {
         )
 
         val intent =
-            BlockingActivity.createIntent(applicationContext, packageName, due)
+            BlockingActivity.createIntent(applicationContext, packageName, due, isStrictModeBlock)
         intent.flags =
             android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
+
+        removeCatWarning()
+        lastWarnedMinute = -1
+    }
+
+    private fun showCatWarning(minutesLeft: Int) {
+        if (!Settings.canDrawOverlays(this)) return
+
+        // Prevent showing the same warning multiple times for the same minute
+        if (lastWarnedMinute == minutesLeft) return
+        lastWarnedMinute = minutesLeft
+
+        // Remove existing if any
+        removeCatWarning()
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) 
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
+            else 
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        )
+        val density = resources.displayMetrics.density
+        val dp = { value: Int -> (value * density).toInt() }
+
+        params.gravity = Gravity.BOTTOM or Gravity.END
+        params.x = dp(16) // Margin right
+        params.y = dp(64) // Margin bottom
+
+        // Create Layout Programmatically
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+        }
+
+        val bg = android.graphics.drawable.GradientDrawable().apply {
+            setColor(android.graphics.Color.parseColor("#E61A1A1A")) // 90% opaque dark background
+            cornerRadius = dp(24).toFloat()
+        }
+        layout.background = bg
+
+        val imageView = ImageView(this).apply {
+            setImageResource(R.drawable.cute_cat_warning)
+            layoutParams = LinearLayout.LayoutParams(dp(120), dp(120)).apply {
+                bottomMargin = dp(12)
+            }
+        }
+
+        val textView = TextView(this).apply {
+            text = "Meow! Only ${minutesLeft}m left!"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 18f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setSingleLine(false)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        layout.addView(imageView)
+        layout.addView(textView)
+
+        overlayView = layout
+        
+        try {
+            windowManager?.addView(overlayView, params)
+        } catch (e: Exception) {
+            Log.e("VetoAccessibility", "Failed to add overlay", e)
+        }
+
+        // Dismiss after 3.5 seconds
+        Handler(Looper.getMainLooper()).postDelayed({
+            removeCatWarning()
+        }, 3500)
+    }
+
+    private fun removeCatWarning() {
+        overlayView?.let {
+            try {
+                windowManager?.removeView(it)
+            } catch (e: Exception) {
+                // Ignore if not attached
+            }
+            overlayView = null
+        }
     }
 
     override fun onInterrupt() {

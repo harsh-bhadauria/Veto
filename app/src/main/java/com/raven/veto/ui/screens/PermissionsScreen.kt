@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -63,6 +64,7 @@ fun PermissionsScreen(
     var isAnkiGranted by remember { mutableStateOf(false) }
     var isNotificationGranted by remember { mutableStateOf(false) }
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
+    var isOverlayGranted by remember { mutableStateOf(false) }
 
     val ankiPermission = "com.ichi2.anki.permission.READ_WRITE_DATABASE"
 
@@ -82,6 +84,7 @@ fun PermissionsScreen(
         }
 
         isAccessibilityEnabled = isAccessibilityServiceEnabled(context)
+        isOverlayGranted = Settings.canDrawOverlays(context)
     }
 
     // Check on resume
@@ -172,6 +175,31 @@ fun PermissionsScreen(
                     }
                 )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Optional Permissions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            PermissionItem(
+                title = "Display Over Other Apps",
+                description = "Required to show the cute cat warning overlay.",
+                isGranted = isOverlayGranted,
+                onClick = {
+                    if (!isOverlayGranted) {
+                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                    }
+                }
+            )
 
             // Helpful note for settings manual intervention
             Spacer(modifier = Modifier.weight(1f))

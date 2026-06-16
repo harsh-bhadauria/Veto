@@ -8,6 +8,8 @@ import com.raven.veto.domain.GetBlockedAppsUseCase
 import com.raven.veto.domain.ToggleAppBlockUseCase
 import com.raven.veto.data.local.VetoDao
 import com.raven.veto.data.local.AppProfileEntity
+import com.raven.veto.data.AnkiRepository
+import com.raven.veto.data.local.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,17 +18,27 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.flow.map
 
 @HiltViewModel
 class AppSelectorViewModel @Inject constructor(
     private val appRepository: AppRepository,
     private val vetoDao: VetoDao,
-    private val toggleAppBlockUseCase: ToggleAppBlockUseCase
+    private val toggleAppBlockUseCase: ToggleAppBlockUseCase,
+    private val ankiRepository: AnkiRepository,
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val _rawApps = MutableStateFlow<List<AppInfo>>(emptyList())
     private val _isLoading = MutableStateFlow(true)
     private val _searchQuery = MutableStateFlow("")
+
+    val strictModeEnabled: StateFlow<Boolean> = preferencesManager.strictModeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val totalDueCards: StateFlow<Int> = ankiRepository.getAnkiStats()
+        .map { it.totalDue }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val searchQuery: StateFlow<String> = _searchQuery
 

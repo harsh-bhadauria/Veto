@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -46,6 +47,8 @@ fun AppSelectorScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val strictModeEnabled by viewModel.strictModeEnabled.collectAsStateWithLifecycle()
+    val totalDueCards by viewModel.totalDueCards.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -97,6 +100,8 @@ fun AppSelectorScreen(
                     ) { app ->
                         AppListItem(
                             app = app,
+                            strictModeEnabled = strictModeEnabled,
+                            totalDueCards = totalDueCards,
                             onToggle = { viewModel.toggleAppBlock(app.packageName) },
                             onMultiplierChange = { newMultiplier ->
                                 viewModel.updateAppMultiplier(app.packageName, newMultiplier)
@@ -112,9 +117,13 @@ fun AppSelectorScreen(
 @Composable
 fun AppListItem(
     app: AppInfo,
+    strictModeEnabled: Boolean,
+    totalDueCards: Int,
     onToggle: (Boolean) -> Unit,
     onMultiplierChange: (Float) -> Unit
 ) {
+    val isLocked = app.isBlocked && strictModeEnabled && totalDueCards > 0
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -131,7 +140,7 @@ fun AppListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onToggle(!app.isBlocked) },
+                .clickable(enabled = !isLocked) { onToggle(!app.isBlocked) },
             verticalAlignment = Alignment.CenterVertically
         ) {
             val bitmap = app.icon?.toBitmap()?.asImageBitmap()
@@ -166,11 +175,22 @@ fun AppListItem(
                 )
             }
 
-            Checkbox(
-                checked = app.isBlocked,
-                onCheckedChange = onToggle
-            )
-        }
+                if (isLocked) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Lock,
+                        contentDescription = "Locked by Strict Mode",
+                        tint = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                Checkbox(
+                    checked = app.isBlocked,
+                    onCheckedChange = if (isLocked) null else onToggle,
+                    enabled = !isLocked
+                )
+            }
         
         if (app.isBlocked) {
             Spacer(modifier = Modifier.height(8.dp))

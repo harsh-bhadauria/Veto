@@ -1,5 +1,10 @@
 package com.raven.veto.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -7,7 +12,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raven.veto.ui.viewmodels.SettingsViewModel
@@ -19,6 +26,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val exchangeRate by viewModel.exchangeRate.collectAsState()
+    val strictModeEnabled by viewModel.strictModeEnabled.collectAsState()
 
     Scaffold(
         topBar = {
@@ -53,6 +61,70 @@ fun SettingsScreen(
             
             Spacer(modifier = Modifier.height(8.dp))
             Text("Adjust how strictly Veto rewards your flashcard reviews.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text("Strict Mode (Optional)", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "When enabled, makes Veto very hard to bypass or uninstall. You can only turn this off if you have 0 Anki cards due.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            val context = LocalContext.current
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+            val component = android.content.ComponentName(context, com.raven.veto.services.VetoDeviceAdminReceiver::class.java)
+            
+            val launcher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult()
+            ) { _ ->
+                if (dpm.isAdminActive(component)) {
+                    viewModel.updateStrictMode(true, context) {}
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Enable Strict Mode", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = strictModeEnabled,
+                    onCheckedChange = { isChecked ->
+                        if (isChecked) {
+                            if (!dpm.isAdminActive(component)) {
+                                val intent = Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                                    putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, component)
+                                    putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Required to prevent uninstalling Veto while you owe time.")
+                                }
+                                launcher.launch(intent)
+                            } else {
+                                viewModel.updateStrictMode(true, context) {}
+                            }
+                        } else {
+                            viewModel.updateStrictMode(false, context) {
+                                Toast.makeText(context, "Cannot disable! You have Anki cards due.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Text("Developer Options", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = { viewModel.setTestTime() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Test 5-Minute Warning")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Sets your balance to exactly 5.1 minutes. Open a blocked app (with 1.0x cost) to trigger the warning.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

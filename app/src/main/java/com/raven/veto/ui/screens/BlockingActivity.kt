@@ -47,15 +47,18 @@ class BlockingActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_PACKAGE_NAME = "extra_package_name"
         private const val EXTRA_DUE_CARDS = "extra_due_cards"
+        private const val EXTRA_HIDE_EMERGENCY_BYPASS = "extra_hide_emergency_bypass"
 
         fun createIntent(
             context: Context,
             packageName: String,
-            dueCards: Int
+            dueCards: Int,
+            hideEmergencyBypass: Boolean = false
         ): Intent {
             return Intent(context, BlockingActivity::class.java).apply {
                 putExtra(EXTRA_PACKAGE_NAME, packageName)
                 putExtra(EXTRA_DUE_CARDS, dueCards)
+                putExtra(EXTRA_HIDE_EMERGENCY_BYPASS, hideEmergencyBypass)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             }
         }
@@ -81,9 +84,12 @@ class BlockingActivity : ComponentActivity() {
                     goHome()
                 }
 
+                val hideEmergencyBypass = intent.getBooleanExtra(EXTRA_HIDE_EMERGENCY_BYPASS, false)
+
                 BlockingScreen(
                     dueCards = state.dueCards,
                     availableMinutes = state.availableMinutes,
+                    hideEmergencyBypass = hideEmergencyBypass,
                     onOpenAnki = {
                         val launchIntent =
                             packageManager.getLaunchIntentForPackage("com.ichi2.anki")
@@ -121,6 +127,7 @@ class BlockingActivity : ComponentActivity() {
 fun BlockingScreen(
     dueCards: Int,
     availableMinutes: Int,
+    hideEmergencyBypass: Boolean,
     onOpenAnki: () -> Unit,
     onEmergencyBypass: () -> Unit,
     onClose: () -> Unit
@@ -267,7 +274,7 @@ fun BlockingScreen(
                     ) {
                         Text("Close")
                     }
-                } else {
+                } else if (!hideEmergencyBypass) {
                     Button(
                         onClick = onEmergencyBypass,
                         modifier = Modifier.fillMaxWidth(),

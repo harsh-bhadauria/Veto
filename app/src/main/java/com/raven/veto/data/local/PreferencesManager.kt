@@ -3,6 +3,7 @@ package com.raven.veto.data.local
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -19,17 +20,28 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "ve
 class PreferencesManager @Inject constructor(@ApplicationContext private val context: Context) {
 
     companion object {
-        val DEFAULT_EXCHANGE_RATE = floatPreferencesKey("default_exchange_rate")
+        private val CUSTOM_EXCHANGE_RATE = floatPreferencesKey("custom_exchange_rate")
+        private val STRICT_MODE = booleanPreferencesKey("strict_mode")
         val CURRENT_BALANCE_MILLIS = longPreferencesKey("current_balance_millis")
     }
 
     val defaultExchangeRateFlow: Flow<Float> = context.dataStore.data.map { preferences ->
-        preferences[DEFAULT_EXCHANGE_RATE] ?: 1.0f // 1 card = 1 minute
+        preferences[CUSTOM_EXCHANGE_RATE] ?: 1.0f
     }
 
     suspend fun setDefaultExchangeRate(rate: Float) {
         context.dataStore.edit { preferences ->
-            preferences[DEFAULT_EXCHANGE_RATE] = rate
+            preferences[CUSTOM_EXCHANGE_RATE] = rate
+        }
+    }
+
+    val strictModeFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[STRICT_MODE] ?: false
+    }
+
+    suspend fun setStrictMode(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[STRICT_MODE] = enabled
         }
     }
 
