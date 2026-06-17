@@ -83,4 +83,25 @@ class PreferencesManager @Inject constructor(@ApplicationContext private val con
             }
         }
     }
+
+    fun hasUsedEmergencyBypassToday(packageName: String): Boolean {
+        val bypassPrefs = context.getSharedPreferences("veto_emergency_bypass", Context.MODE_PRIVATE)
+        val lastDate = bypassPrefs.getString(packageName, "")
+        
+        val now = LocalDateTime.now()
+        val adjustedDate = if (now.hour < 4) now.minusDays(1) else now
+        val todayStr = DateTimeFormatter.ISO_LOCAL_DATE.format(adjustedDate)
+        
+        return lastDate == todayStr
+    }
+
+    fun markEmergencyBypassUsed(packageName: String) {
+        val bypassPrefs = context.getSharedPreferences("veto_emergency_bypass", Context.MODE_PRIVATE)
+        
+        val now = LocalDateTime.now()
+        val adjustedDate = if (now.hour < 4) now.minusDays(1) else now
+        val todayStr = DateTimeFormatter.ISO_LOCAL_DATE.format(adjustedDate)
+        
+        bypassPrefs.edit().putString(packageName, todayStr).apply()
+    }
 }

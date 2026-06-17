@@ -176,9 +176,9 @@ class VetoAccessibilityService : AccessibilityService() {
                 val textLower = allText.toString().lowercase()
                 val hasVeto = textLower.contains("veto")
                 
-                val isAppInfo = hasVeto && (textLower.contains("force stop") || textLower.contains("uninstall") || textLower.contains("clear data"))
-                val isDeviceAdmin = hasVeto && (textLower.contains("deactivate") || textLower.contains("remove active admin"))
-                val isAccessibility = hasVeto && (textLower.contains("use veto") || textLower.contains("stop veto"))
+                val isAppInfo = hasVeto && (textLower.contains("force stop") || textLower.contains("uninstall") || textLower.contains("clear data") || textLower.contains("app info"))
+                val isDeviceAdmin = hasVeto && (textLower.contains("deactivate") || textLower.contains("remove active admin") || textLower.contains("device admin") || textLower.contains("disable veto"))
+                val isAccessibility = hasVeto && (textLower.contains("use veto") || textLower.contains("stop veto") || textLower.contains("accessibility"))
 
                 if (isAppInfo || isDeviceAdmin || isAccessibility) {
                     Log.d("VetoAccessibility", "Strict Mode blocked Settings access to Veto")
